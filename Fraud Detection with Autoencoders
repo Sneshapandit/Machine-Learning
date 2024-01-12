@@ -1,0 +1,44 @@
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
+
+dataset = pd.read_csv('your_dataset.csv')
+
+X = dataset.iloc[:, 1:-1].values  # Assuming the features are in columns 1 through second-to-last
+y = dataset.iloc[:, -1].values  # Assuming the labels are in the last column
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+input_dim = X_train.shape[1]
+
+model = tf.keras.Sequential([
+    tf.keras.layers.InputLayer(input_shape=(input_dim,)),
+    tf.keras.layers.Dense(units=8, activation='relu'),
+    tf.keras.layers.Dense(units=4, activation='relu'),
+    tf.keras.layers.Dense(units=8, activation='relu'),
+    tf.keras.layers.Dense(units=input_dim, activation='sigmoid')
+])
+
+model.compile(optimizer='adam', loss='mse')  # Mean Squared Error as the loss function
+
+model.fit(X_train, X_train, epochs=10, batch_size=32, shuffle=True, validation_data=(X_test, X_test))
+
+decoded_predictions = model.predict(X_test)
+
+mse = np.mean(np.square(X_test - decoded_predictions), axis=1)
+
+threshold = 0.1
+
+predictions = np.where(mse > threshold, 1, 0)
+
+print("Confusion Matrix:\n", confusion_matrix(y_test, predictions))
+print("Accuracy:", accuracy_score(y_test, predictions))
+print("Precision:", precision_score(y_test, predictions))
+print("Recall:", recall_score(y_test, predictions))
