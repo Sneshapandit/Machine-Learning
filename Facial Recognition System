@@ -1,0 +1,62 @@
+import cv2
+import dlib
+from sklearn.decomposition import PCA
+from sklearn.svm import SVC
+import numpy as np
+
+detector = dlib.get_frontal_face_detector()
+
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+
+model = SVC(kernel='linear', probability=True, tol=1e-3)
+pca = PCA(n_components=150, whiten=True)
+
+dataset_path = 'dataset'
+faces = []
+labels = []
+person_id = 0
+
+for person_name in os.listdir(dataset_path):
+    person_path = os.path.join(dataset_path, person_name)
+    
+    if os.path.isdir(person_path):
+        for filename in os.listdir(person_path):
+            image_path = os.path.join(person_path, filename)
+
+            image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+            faces_in_image = detector(image)
+            if len(faces_in_image) == 1:
+                landmarks = predictor(image, faces_in_image[0])
+                landmarks_array = np.array([[p.x, p.y] for p in landmarks.parts()])
+                flattened_landmarks = landmarks_array.flatten()
+                faces.append(flattened_landmarks)
+                labels.append(person_id)
+        person_id += 1
+faces = np.array(faces)
+labels = np.array(labels)
+pca.fit(faces)
+faces_pca = pca.transform(faces)
+model.fit(faces_pca, labels)
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces_in_frame = detector(gray)
+
+    for face in faces_in_frame:
+        landmarks = predictor(gray, face)
+        landmarks_array = np.array([[p.x, p.y] for p in landmarks.parts()])
+        flattened_landmarks = landmarks_array.flatten()
+        face_pca = pca.transform([flattened_landmarks])
+        prediction = model.predict(face_pca)[0]
+        probability = np.max(model.predict_proba(face_pca))
+        cv2.putText(frame, f"Person {prediction} ({probability:.2f})", (face.left(), face.top() - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
+        cv2.rectangle(frame, (face.left(), face.top()), (face.right(), face.bottom()), (0, 255, 0), 2)
+    cv2.imshow('Facial Recognition', frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+cap.release()
+cv2.destroyAllWindows()
