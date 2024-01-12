@@ -1,0 +1,38 @@
+import cv2
+import numpy as np
+from tensorflow import keras
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.inception_v3 import preprocess_input
+
+model = load_model('i3d_kinetics.h5')  # Replace with the path to your pre-trained model
+
+class_labels = ['Swinging', 'Running', 'Jumping', 'Walking', 'Boxing', 'Throwing', 'Swimming', 'Playing guitar', 'Cycling', 'Skiing']
+
+video_path = 'sample_video.mp4'  # Replace with the path to your video file or use 0 for webcam
+cap = cv2.VideoCapture(video_path)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+    frame = cv2.resize(frame, (224, 224))
+
+    img_array = image.img_to_array(frame)
+    img_array = np.expand_dims(img_array, axis=0)
+    img_array = preprocess_input(img_array)
+
+    predictions = model.predict(img_array)
+    predicted_class = np.argmax(predictions)
+
+    action_label = class_labels[predicted_class]
+
+    cv2.putText(frame, f"Action: {action_label}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+    cv2.imshow('Video Action Recognition', frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
