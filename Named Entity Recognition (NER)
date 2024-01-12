@@ -1,0 +1,35 @@
+import spacy
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.pipeline import Pipeline
+from sklearn.neural_network import MLPClassifier
+
+nlp = spacy.load("en_core_web_sm")
+
+text = "Apple Inc. was founded by Steve Jobs, Steve Wozniak, and Ronald Wayne."
+
+def extract_features(doc):
+    return [{"text": token.text, "pos": token.pos_} for token in doc]
+
+def transform_annotations(doc):
+    return [ent.label_ if ent.label_ else 'O' for ent in doc.ents]
+
+train_data = []
+doc = nlp(text)
+train_data.append((extract_features(doc), transform_annotations(doc)))
+
+classifier = Pipeline([
+    ('vectorizer', DictVectorizer(sparse=False)),
+    ('classifier', MLPClassifier())
+])
+
+X_train = [x for features, _ in train_data for x in features]
+y_train = [y for _, labels in train_data for y in labels]
+classifier.fit(X_train, y_train)
+
+new_text = "Tim Cook is the current CEO of Apple Inc."
+new_doc = nlp(new_text)
+new_features = extract_features(new_doc)
+predicted_labels = classifier.predict([new_features])[0]
+
+for token, label in zip(new_doc, predicted_labels):
+    print(f"{token.text}: {label}")
